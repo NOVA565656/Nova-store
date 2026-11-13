@@ -1,8 +1,8 @@
 export default function Home() {
   return (
-    <main style={{ padding: '2rem', fontFamily: 'system-ui' }}>
-      <h1>Marketplace</h1>
-      <p>Phase 0 — bootstrap.</p>
+    <main style={{ padding: '2rem' }}>
+      <h1 style={{ fontSize: '1.25rem' }}>Marketplace</h1>
+      <p style={{ color: '#6b7280' }}>P1 — identity &amp; header.</p>
     </main>
   );
 }
