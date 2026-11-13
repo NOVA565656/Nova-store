@@ -1,34 +1,47 @@
+// @security:forgery
+// P1: verifies real session code (lib/auth/session.ts), not the jose library in isolation.
 import { describe, it, expect } from 'vitest';
-import { SignJWT, jwtVerify } from 'jose';
+import { signSession, verifyOrThrow, AuthError } from '../../lib/auth/session';
 
-const SECRET = new TextEncoder().encode('test-secret-min-32-chars-for-hs256!!');
+const valid = { sub: 'u1', role: 'buyer' as const, displayName: 'Test', nameType: 'nickname' as const };
 
-async function makeToken(payload: Record<string, unknown>, expDeltaSeconds = 3600): Promise<string> {
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime(Math.floor(Date.now() / 1000) + expDeltaSeconds)
-    .sign(SECRET);
-}
-
-describe('@security:forgery — session token forgery resistance', () => {
-  it('rejects a tampered signature', async () => {
-    const token = await makeToken({ sub: 'user1', role: 'buyer' });
-    const tampered = token.slice(0, -6) + 'AAAAAA';
-    await expect(jwtVerify(tampered, SECRET)).rejects.toThrow();
+describe('@security:forgery — real session verification', () => {
+  it('accepts a freshly signed token', async () => {
+    const token = await signSession(valid);
+    const payload = await verifyOrThrow(token);
+    expect(payload.sub).toBe('u1');
+    expect(payload.role).toBe('buyer');
   });
 
-  it('rejects an expired token', async () => {
-    const token = await makeToken({ sub: 'user1', role: 'buyer' }, -10);
-    await expect(jwtVerify(token, SECRET)).rejects.toThrow();
+  it('rejects a tampered signature', async () => {
+    const token = await signSession(valid);
+    const tampered = token.slice(0, -6) + 'AAAAAA';
+    await expect(verifyOrThrow(tampered)).rejects.toBeInstanceOf(AuthError);
   });
 
   it('rejects a missing token', async () => {
-    await expect(jwtVerify('', SECRET)).rejects.toThrow();
+    await expect(verifyOrThrow(undefined)).rejects.toMatchObject({ status: 401 });
+    await expect(verifyOrThrow('')).rejects.toMatchObject({ status: 401 });
+    await expect(verifyOrThrow(null)).rejects.toMatchObject({ status: 401 });
   });
 
   it('rejects a token signed with a different secret', async () => {
-    const otherSecret = new TextEncoder().encode('different-secret-32-chars-min-here');
-    const token = await makeToken({ sub: 'user1', role: 'seller' });
-    await expect(jwtVerify(token, otherSecret)).rejects.toThrow();
+    const { SignJWT } = await import('jose');
+    const otherSecret = new TextEncoder().encode('different-secret-must-be-32-chars-min!!');
+    const foreign = await new SignJWT({ sub: 'u1', role: 'seller' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime(Math.floor(Date.now() / 1000) + 3600)
+      .sign(otherSecret);
+    await expect(verifyOrThrow(foreign)).rejects.toMatchObject({ status: 401 });
+  });
+
+  it('rejects an expired token', async () => {
+    const { SignJWT } = await import('jose');
+    const s = new TextEncoder().encode(process.env.SESSION_SECRET!);
+    const expired = await new SignJWT({ sub: 'u1', role: 'buyer', displayName: 'x', nameType: 'nickname' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setExpirationTime(Math.floor(Date.now() / 1000) - 10)
+      .sign(s);
+    await expect(verifyOrThrow(expired)).rejects.toMatchObject({ status: 401 });
   });
 });
