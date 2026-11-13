@@ -19,9 +19,11 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -44,7 +46,7 @@ jobs:
           REQUIRED=("@security:rls" "@security:forgery" "@security:ratelimit" "@security:authz")
           FAIL=0
           for tag in "${REQUIRED[@]}"; do
-            MATCHES=$(grep -rl --include="*.ts" --include="*.sql" "$tag" tests/ supabase/tests/ 2>/dev/null || true)
+            MATCHES=$(grep -rl --include="*.ts" --include="*.tsx" --include="*.sql" "$tag" tests/ supabase/tests/ 2>/dev/null || true)
             if [ -z "$MATCHES" ]; then
               echo "::error::Missing security test file containing tag $tag"
               FAIL=1
@@ -64,9 +66,9 @@ jobs:
         env:
           SESSION_SECRET: 'test-secret-must-be-at-least-32-chars-long!!'
           APP_URL: 'http://localhost:3000'
+          SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key'
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role' }}
 
       - name: Build (production)
         run: npm run build
@@ -74,21 +76,24 @@ jobs:
           NEXT_TELEMETRY_DISABLED: 1
           SESSION_SECRET: 'test-secret-must-be-at-least-32-chars-long!!'
           APP_URL: 'http://localhost:3000'
+          SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key'
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role' }}
 
       - name: Verify production build output
         run: |
-          if [ ! -d ".next" ]; then echo "::error::build failed"; exit 1; fi
-          echo "Build artifact found."
+          if [ ! -d ".next" ]; then
+            echo "::error::Production build failed: .next directory missing."
+            exit 1
+          fi
+          echo "Production build artifact found."
 
       - name: Setup Supabase CLI
         if: hashFiles('supabase/**') != ''
-        # Replace SHA: git ls-remote https://github.com/supabase/setup-cli refs/tags/v2.0.0
-        uses: supabase/setup-cli@8c2a9c1f6c0f9f4f1b5a3e9f2c8d1e4a6b7c8d9e
+        # Pinned to v3.0.0 actual commit SHA
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
-          version: 2.0.0
+          version: latest
 
       - name: Validate schema and run pgTAP tests
         if: hashFiles('supabase/**') != ''
