@@ -1,10 +1,10 @@
-# P1 Exit Report
+# P1 Exit Report (revised P1.2)
 
-| Class | File | Real app behavior asserted |
-|---|---|---|
-| `@security:rls` | `supabase/tests/security/rls.test.sql` | Anon role reads 0 rows from `profiles` under default-deny RLS |
-| `@security:forgery` | `tests/security/forgery.test.ts` | `verifyOrThrow()` rejects tampered / expired / missing / wrong-secret tokens |
-| `@security:ratelimit` | `tests/security/ratelimit.test.ts` | Per-key budget enforced; §GAP-1..4 document known bypass vectors (not passes) |
-| `@security:authz` | `tests/security/authz.test.ts` | `verifyOrThrow()` rejects unauthenticated; `requireRoleToken()` rejects wrong role (403) |
+| Class | File | Real app behavior asserted | Scope |
+|---|---|---|---|
+| `@security:rls` | `rls.test.sql` | Anon reads 0; user A cannot select/update user B; authenticated cannot update `roles`; authenticated cannot insert profiles | Route-level integration → P2 |
+| `@security:forgery` | `forgery.test.ts` | Rejects tampered/expired/missing/wrong-secret tokens; JWT identity-only | — |
+| `@security:ratelimit` | `ratelimit.test.ts` | Budget enforced; §GAP-1..5 documented | Not wired to routes → P2 |
+| `@security:authz` | `authz.test.ts`, `roles.test.ts` | `requireRoleForVerifiedSession()` queries `getUserRoles()`; DB query shape asserted (column, filter, error path) | End-to-end role path → P2 |
 
-**Gate decision:** All four rows exercise real application code (session signing/verification, RLS policies, rate limiter). No row says "library" or "placeholder". **P1 gate: PASSED.**
+**Honest gate decision:** **PASSED for helper-level scope.** Authz DB query path deferred to P2 (integration). RLS is defense-in-depth only (Rule 10). Route-level integration is P2's gate.
