@@ -1,6 +1,6 @@
 {
   "name": "marketplace",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.45.4",
     "jose": "5.9.6",
     "next": "14.2.32",
     "react": "18.3.1",
