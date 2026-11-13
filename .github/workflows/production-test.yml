@@ -1,0 +1,97 @@
+name: Production Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Enforce security test tags
+        run: |
+          set -uo pipefail
+          REQUIRED=("@security:rls" "@security:forgery" "@security:ratelimit")
+          FAIL=0
+          for tag in "${REQUIRED[@]}"; do
+            MATCHES=$(grep -rl --include="*.ts" --include="*.tsx" --include="*.sql" "$tag" tests/ supabase/tests/ 2>/dev/null || true)
+            if [ -z "$MATCHES" ]; then
+              echo "::error::Missing security test file containing tag $tag"
+              FAIL=1
+              continue
+            fi
+            for f in $MATCHES; do
+              if ! grep -qE '(^|[^a-zA-Z_])(it\(|test\(|it\.todo\(|plan\(|ok\()' "$f"; then
+                echo "::error::File $f contains $tag but no assertions (it(/test(/it.todo(/plan(/ok()"
+                FAIL=1
+              fi
+            done
+          done
+          if [ "$FAIL" -ne 0 ]; then exit 1; fi
+          echo "All required security tags present with assertions."
+
+      - name: Test (Vitest)
+        run: npm test
+
+      - name: Build (production)
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+
+      - name: Verify production build output
+        run: |
+          if [ ! -d ".next" ]; then
+            echo "::error::Production build failed: .next directory missing."
+            exit 1
+          fi
+          echo "Production build artifact found."
+
+      - name: Setup Supabase CLI
+        if: hashFiles('supabase/**') != ''
+        # REPLACE THIS SHA with: git ls-remote https://github.com/supabase/setup-cli refs/tags/v2.0.0
+        uses: supabase/setup-cli@8c2a9c1f6c0f9f4f1b5a3e9f2c8d1e4a6b7c8d9e
+        with:
+          version: 2.0.0
+
+      - name: Validate schema and run pgTAP tests
+        if: hashFiles('supabase/**') != ''
+        run: |
+          supabase start
+          supabase db reset
+          supabase test db
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
