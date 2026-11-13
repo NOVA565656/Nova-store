@@ -19,11 +19,9 @@ jobs:
     timeout-minutes: 25
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -43,10 +41,10 @@ jobs:
       - name: Enforce security test tags
         run: |
           set -uo pipefail
-          REQUIRED=("@security:rls" "@security:forgery" "@security:ratelimit")
+          REQUIRED=("@security:rls" "@security:forgery" "@security:ratelimit" "@security:authz")
           FAIL=0
           for tag in "${REQUIRED[@]}"; do
-            MATCHES=$(grep -rl --include="*.ts" --include="*.tsx" --include="*.sql" "$tag" tests/ supabase/tests/ 2>/dev/null || true)
+            MATCHES=$(grep -rl --include="*.ts" --include="*.sql" "$tag" tests/ supabase/tests/ 2>/dev/null || true)
             if [ -z "$MATCHES" ]; then
               echo "::error::Missing security test file containing tag $tag"
               FAIL=1
@@ -54,35 +52,40 @@ jobs:
             fi
             for f in $MATCHES; do
               if ! grep -qE '(^|[^a-zA-Z_])(it\(|test\(|it\.todo\(|plan\(|ok\()' "$f"; then
-                echo "::error::File $f contains $tag but no assertions (it(/test(/it.todo(/plan(/ok()"
+                echo "::error::File $f contains $tag but no assertions"
                 FAIL=1
               fi
             done
           done
-          if [ "$FAIL" -ne 0 ]; then exit 1; fi
-          echo "All required security tags present with assertions."
+          [ "$FAIL" -eq 0 ] && echo "All required security tags present with assertions."
 
       - name: Test (Vitest)
         run: npm test
+        env:
+          SESSION_SECRET: 'test-secret-must-be-at-least-32-chars-long!!'
+          APP_URL: 'http://localhost:3000'
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role' }}
 
       - name: Build (production)
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
+          SESSION_SECRET: 'test-secret-must-be-at-least-32-chars-long!!'
+          APP_URL: 'http://localhost:3000'
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role' }}
 
       - name: Verify production build output
         run: |
-          if [ ! -d ".next" ]; then
-            echo "::error::Production build failed: .next directory missing."
-            exit 1
-          fi
-          echo "Production build artifact found."
+          if [ ! -d ".next" ]; then echo "::error::build failed"; exit 1; fi
+          echo "Build artifact found."
 
       - name: Setup Supabase CLI
         if: hashFiles('supabase/**') != ''
-        # REPLACE THIS SHA with: git ls-remote https://github.com/supabase/setup-cli refs/tags/v2.0.0
+        # Replace SHA: git ls-remote https://github.com/supabase/setup-cli refs/tags/v2.0.0
         uses: supabase/setup-cli@8c2a9c1f6c0f9f4f1b5a3e9f2c8d1e4a6b7c8d9e
         with:
           version: 2.0.0
