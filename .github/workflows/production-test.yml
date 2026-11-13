@@ -26,10 +26,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # REMOVED cache: 'npm' so it doesn't fail looking for the missing lockfile
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
+        # CHANGED from npm ci to npm install
 
       - name: Audit dependencies
         run: npm audit --omit=dev --audit-level=high
@@ -90,7 +91,6 @@ jobs:
 
       - name: Setup Supabase CLI
         if: hashFiles('supabase/**') != ''
-        # Pinned to v3.0.0 actual commit SHA
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
         with:
           version: latest
