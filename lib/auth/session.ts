@@ -1,14 +1,15 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+import { logAuthFail } from './log';
+import { getUserRoles } from './roles';
+import { env } from '@/lib/env';
 
 function secret(): Uint8Array {
-  const s = process.env.SESSION_SECRET;
-  if (!s || s.length < 32) throw new Error('SESSION_SECRET must be set (>=32 chars)');
-  return new TextEncoder().encode(s);
+  return new TextEncoder().encode(env.SESSION_SECRET);
 }
 
+// Rule 8: JWT carries identity only.
 export type SessionPayload = JWTPayload & {
   sub: string;
-  role: 'buyer' | 'seller';
   displayName: string;
   nameType: 'nickname' | 'company';
   guest?: boolean;
@@ -31,20 +32,36 @@ export async function signSession(p: Omit<SessionPayload, 'iat' | 'exp'>): Promi
 }
 
 export async function verifyOrThrow(token: string | undefined | null): Promise<SessionPayload> {
-  if (!token) throw new AuthError('unauthorized', 401);
+  if (!token) {
+    logAuthFail('no-token', 'verify');
+    throw new AuthError('unauthorized', 401);
+  }
+  const key = secret(); // outside try — config errors propagate, never swallowed
   try {
-    const { payload } = await jwtVerify(token, secret());
+    const { payload } = await jwtVerify(token, key);
     return payload as SessionPayload;
   } catch {
+    logAuthFail('invalid-token', 'verify');
     throw new AuthError('unauthorized', 401);
   }
 }
 
-export async function requireRoleToken(
-  token: string | undefined | null,
+/**
+ * @remarks Caller MUST have verified the token via verifyOrThrow() first.
+ *          This function only resolves roles from the DB and enforces the check.
+ */
+export async function requireRoleForVerifiedSession(
+  session: SessionPayload | null,
   role: 'buyer' | 'seller',
 ): Promise<SessionPayload> {
-  const s = await verifyOrThrow(token);
-  if (s.role !== role) throw new AuthError('forbidden', 403);
-  return s;
+  if (!session) {
+    logAuthFail('no-session', 'requireRole');
+    throw new AuthError('unauthorized', 401);
+  }
+  const roles = await getUserRoles(session.sub);
+  if (!roles.includes(role)) {
+    logAuthFail(`wrong-role:${role}`, 'requireRole');
+    throw new AuthError('forbidden', 403);
+  }
+  return session;
 }
