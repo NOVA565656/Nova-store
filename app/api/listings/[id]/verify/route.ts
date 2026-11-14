@@ -6,11 +6,11 @@ import { verifyPlatformProof } from '@/lib/verification';
 import { rateLimit } from '@/lib/rate-limit';
 import { cookies } from 'next/headers';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // 1. Rate Limiting Check
   if (!rateLimit(`verify:${session.sub}`, 10, 60_000)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
@@ -19,14 +19,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const rawToken = cookieStore.get(SESSION_COOKIE)?.value;
   if (!rawToken) return NextResponse.json({ error: 'Missing token' }, { status: 401 });
 
-  // 2. User-Scoped Client (RLS Enforced)
   const supabase = createUserClient(rawToken);
   const { platform, proofUrl, submittedKey } = await req.json();
 
   const { data: listing } = await supabase
     .from('listings')
     .select('id, type')
-    .eq('id', params.id)
+    .eq('id', id)
     .single();
 
   if (!listing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -81,7 +80,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const result = await verifyPlatformProof(platform, proofUrl, submittedKey);
   if (!result.success) return NextResponse.json({ error: result.message }, { status: 400 });
 
-  // 3. Atomic Key Consumption
   const { data: consumed, error: consumeErr } = await supabase
     .from('verification_keys')
     .update({ used_at: new Date().toISOString() })
