@@ -20,6 +20,22 @@ vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({ get: vi.fn
 describe('@security:authz — route-level integration', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('rejects unauthenticated users', async () => {
+    vi.mocked(getSession).mockResolvedValue(null);
+    const req = new NextRequest('http://localhost/api/listings', { method: 'POST', body: '{}' });
+    const res = await createListing(req);
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects users without the seller role', async () => {
+    vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
+    vi.mocked(requireRoleForVerifiedSession).mockRejectedValue(new AuthError('forbidden', 403));
+    
+    const req = new NextRequest('http://localhost/api/listings', { method: 'POST', body: JSON.stringify({}) });
+    const res = await createListing(req);
+    expect(res.status).toBe(403);
+  });
+
   it('enforces rate limiting on listing creation', async () => {
     vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
     vi.mocked(requireRoleForVerifiedSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
@@ -27,16 +43,14 @@ describe('@security:authz — route-level integration', () => {
 
     const req = new NextRequest('http://localhost/api/listings', { method: 'POST', body: JSON.stringify({}) });
     const res = await createListing(req);
-
     expect(res.status).toBe(429);
   });
 
   it('blocks unverified skills from being approved', async () => {
     vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
     
-    // Mock listing lookup returning an unverified skill
     const mockSingle = vi.fn().mockResolvedValue({ 
-      data: { id: 'l1', seller_id: 'u1', type: 'skill', proof_verified: false }, 
+      data: { id: 'l1', seller_id: 'u1', type: 'skill', proof_verified: false, status: 'plan_ready' }, 
       error: null 
     });
     const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
