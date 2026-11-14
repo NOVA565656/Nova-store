@@ -17,6 +17,7 @@ const createSchema = z.object({
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   
   try {
     await requireRoleForVerifiedSession(session, 'seller');
@@ -25,29 +26,26 @@ export async function POST(req: NextRequest) {
     throw e;
   }
 
-  if (!rateLimit(`create_listing:${session!.sub}`, 5, 60_000)) {
+  if (!rateLimit(`create_listing:${session.sub}`, 5, 60_000)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
 
-  let body;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
-
+  const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.format() }, { status: 400 });
   }
 
-  const rawToken = (await cookies()).get(SESSION_COOKIE)?.value!;
+  const cookieStore = await cookies();
+  const rawToken = cookieStore.get(SESSION_COOKIE)?.value;
+  if (!rawToken) return NextResponse.json({ error: 'Missing token' }, { status: 401 });
+
   const supabase = createUserClient(rawToken);
 
   const { data: listing, error } = await supabase
     .from('listings')
     .insert({
-      seller_id: session!.sub,
+      seller_id: session.sub,
       status: 'ai_scanning',
       ...parsed.data,
     })
