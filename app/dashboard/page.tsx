@@ -1,26 +1,26 @@
-'use client';
-import { useEffect, useState } from 'react';
+import { getSession, SESSION_COOKIE } from '@/lib/auth/require';
+import { redirect } from 'next/navigation';
+import { createUserClient } from '@/lib/supabase-client';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
+import ApproveButton from './ApproveButton';
 
-export default function Dashboard() {
-  const [listings, setListings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export const dynamic = 'force-dynamic';
 
-  const fetchListings = async () => {
-    const res = await fetch('/api/listings');
-    if (res.ok) setListings(await res.json());
-    setLoading(false);
-  };
+export default async function Dashboard() {
+  const session = await getSession();
+  if (!session) redirect('/');
 
-  useEffect(() => { fetchListings(); }, []);
+  const cookieStore = await cookies();
+  const rawToken = cookieStore.get(SESSION_COOKIE)?.value;
+  if (!rawToken) redirect('/');
 
-  const handleApprove = async (id: string) => {
-    const res = await fetch(`/api/listings/${id}/approve`, { method: 'POST' });
-    if (res.ok) fetchListings();
-    else alert((await res.json()).error);
-  };
+  const supabase = createUserClient(rawToken);
 
-  if (loading) return <div style={{ padding: '2rem' }}>Loading...</div>;
+  const { data: listings } = await supabase
+    .from('listings')
+    .select('*')
+    .order('created_at', { ascending: false });
 
   return (
     <div style={{ padding: '2rem' }}>
@@ -29,7 +29,7 @@ export default function Dashboard() {
         + New Listing
       </Link>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {listings.map(l => (
+        {listings?.map(l => (
           <div key={l.id} style={{ padding: '1rem', border: '1px solid #eee', borderRadius: 8 }}>
             <h3>{l.title} <span style={{ fontSize: '0.8rem', background: '#eee', padding: '0.2rem 0.5rem', borderRadius: 8 }}>{l.status}</span></h3>
             
@@ -45,13 +45,7 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                <button 
-                  onClick={() => handleApprove(l.id)}
-                  disabled={l.type === 'skill' && !l.proof_verified}
-                  style={{ background: '#10b981', color: '#fff', padding: '0.5rem 1rem', border: 'none', borderRadius: 8, opacity: (l.type === 'skill' && !l.proof_verified) ? 0.5 : 1 }}
-                >
-                  Approve & Publish
-                </button>
+                <ApproveButton listingId={l.id} disabled={l.type === 'skill' && !l.proof_verified} />
               </div>
             )}
           </div>
