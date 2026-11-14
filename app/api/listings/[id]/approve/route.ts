@@ -13,13 +13,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const supabase = createUserClient(rawToken);
 
-  // We do a single atomic update that checks the state AND ownership (via RLS)
+  // 1. Try to update a product (Products don't need verification)
   const { data: updated, error } = await supabase
     .from('listings')
     .update({ status: 'published' })
     .eq('id', params.id)
     .eq('status', 'plan_ready')
-    .eq('type', 'product') // Products don't need verification
+    .eq('type', 'product')
     .select()
     .single();
 
@@ -31,8 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ success: true });
   }
 
-  // If it wasn't a product, it might be a skill that needs verification.
-  // We check that state explicitly to give a helpful error.
+  // 2. If it wasn't a product, check if it's a skill
   const { data: skill } = await supabase
     .from('listings')
     .select('id, type, proof_verified, status')
