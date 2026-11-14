@@ -8,7 +8,6 @@ import { rateLimit } from '../../lib/rate-limit';
 import { createUserClient } from '../../lib/supabase-client';
 import { NextRequest } from 'next/server';
 
-// 1. Fix the require mock to include SESSION_COOKIE
 vi.mock('../../lib/auth/require', () => ({ 
   getSession: vi.fn(),
   SESSION_COOKIE: 'session'
@@ -21,12 +20,10 @@ vi.mock('../../lib/auth/session', () => ({
 
 vi.mock('../../lib/rate-limit', () => ({ rateLimit: vi.fn() }));
 
-// 2. Mock createUserClient instead of supabaseAdmin
 vi.mock('../../lib/supabase-client', () => ({ 
   createUserClient: vi.fn() 
 }));
 
-// 3. Fix the cookies mock to return a valid token
 vi.mock('next/headers', () => ({ 
   cookies: vi.fn().mockResolvedValue({ 
     get: vi.fn().mockReturnValue({ value: 'mock-token' }) 
@@ -65,7 +62,6 @@ describe('@security:authz — route-level integration', () => {
   it('blocks unverified skills from being approved', async () => {
     vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
     
-    // Mock the exact chain the approve route uses
     const mockSupabase = {
       from: vi.fn().mockReturnValue({
         update: vi.fn().mockReturnValue({
@@ -73,7 +69,6 @@ describe('@security:authz — route-level integration', () => {
             eq: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
                 select: vi.fn().mockReturnValue({
-                  // Product update fails because it's a skill (simulating 0 rows / PGRST116)
                   single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
                 })
               })
@@ -82,7 +77,6 @@ describe('@security:authz — route-level integration', () => {
         }),
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            // Fallback fetch identifies it as an unverified skill
             single: vi.fn().mockResolvedValue({ 
               data: { id: 'l1', type: 'skill', proof_verified: false, status: 'plan_ready' }, 
               error: null 
@@ -95,7 +89,8 @@ describe('@security:authz — route-level integration', () => {
     vi.mocked(createUserClient).mockReturnValue(mockSupabase as never);
 
     const req = new NextRequest('http://localhost/api/listings/l1/approve', { method: 'POST' });
-    const res = await approveListing(req, { params: { id: 'l1' } });
+    // Next 15+ requires params to be a Promise
+    const res = await approveListing(req, { params: Promise.resolve({ id: 'l1' }) });
 
     expect(res.status).toBe(400);
     const json = await res.json();
