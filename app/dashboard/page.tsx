@@ -4,6 +4,9 @@ import { createUserClient } from '@/lib/supabase-client';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 
+// Force Next.js to render this page dynamically (per-request) instead of at build time.
+export const dynamic = 'force-dynamic';
+
 export default async function Dashboard() {
   const session = await getSession();
   if (!session) redirect('/');
@@ -11,7 +14,10 @@ export default async function Dashboard() {
   const rawToken = (await cookies()).get(SESSION_COOKIE)?.value!;
   const supabase = createUserClient(rawToken);
 
-  const { data: listings } = await supabase.from('listings').select('*');
+  // RLS enforces that only this user's listings are returned
+  const { data: listings } = await supabase
+    .from('listings')
+    .select('*');
 
   return (
     <div style={{ padding: '2rem' }}>
