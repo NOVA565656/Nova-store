@@ -24,8 +24,8 @@ export default function NewListing() {
   if (!type) {
     return (
       <div style={{ padding: '2rem', display: 'flex', gap: '1rem' }}>
-        <button onClick={() => setType('product')} style={{ padding: '2rem', borderRadius: 12, border: '1px solid #ccc' }}>I'm listing a Product</button>
-        <button onClick={() => setType('skill')} style={{ padding: '2rem', borderRadius: 12, border: '1px solid #ccc' }}>I'm offering a Skill</button>
+        <button onClick={() => setType('product')} style={{ padding: '2rem', borderRadius: 12, border: '1px solid #ccc' }}>I&apos;m listing a Product</button>
+        <button onClick={() => setType('skill')} style={{ padding: '2rem', borderRadius: 12, border: '1px solid #ccc' }}>I&apos;m offering a Skill</button>
       </div>
     );
   }
