@@ -5,13 +5,8 @@ function isSafeUrl(urlStr: string): boolean {
     
     const hostname = parsed.hostname.toLowerCase();
     
-    // Block localhost variations
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1') return false;
-    
-    // Block AWS/GCP metadata IP
     if (hostname === '169.254.169.254') return false;
-
-    // Block IPv4 private ranges
     if (hostname.startsWith('10.') || hostname.startsWith('192.168.')) return false;
     if (hostname.startsWith('172.')) {
       const parts = hostname.split('.');
@@ -68,7 +63,7 @@ export async function verifyPlatformProof(
     }
 
     return { success: false, message: 'Unsupported platform' };
-  } catch (e) {
+  } catch {
     return { success: false, message: 'Verification failed due to network error' };
   }
 }
