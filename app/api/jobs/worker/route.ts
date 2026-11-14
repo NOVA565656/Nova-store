@@ -8,23 +8,28 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // ATOMIC LOCK: Update and select in one go to prevent duplicate processing
-  const { data: jobs, error: jobError } = await supabaseAdmin
-    .from('jobs')
-    .update({ status: 'processing' })
-    .eq('status', 'pending')
-    .select('*, listings(*)')
-    .limit(1);
+  // 1. Atomic claim: locks the row and updates status in one step
+  const { data: claimedJobs, error: claimError } = await supabaseAdmin.rpc('claim_pending_job');
 
-  if (jobError || !jobs || jobs.length === 0) {
-    return NextResponse.json({ message: 'No pending jobs or error' });
+  if (claimError) {
+    return NextResponse.json({ error: claimError.message }, { status: 500 });
   }
 
-  const job = jobs[0];
-  const listing = Array.isArray(job.listings) ? job.listings[0] : job.listings;
-  
-  if (!listing) {
-    await supabaseAdmin.from('jobs').update({ status: 'failed', result: { error: 'Listing missing' } }).eq('id', job.id);
+  if (!claimedJobs || claimedJobs.length === 0) {
+    return NextResponse.json({ message: 'No pending jobs' });
+  }
+
+  const job = claimedJobs[0];
+
+  // 2. Fetch the associated listing
+  const { data: listing, error: listingError } = await supabaseAdmin
+    .from('listings')
+    .select('*')
+    .eq('id', job.listing_id)
+    .single();
+
+  if (listingError || !listing) {
+    await supabaseAdmin.from('jobs').update({ status: 'failed', result: { error: 'Listing not found' } }).eq('id', job.id);
     return NextResponse.json({ error: 'Listing missing' }, { status: 500 });
   }
 
@@ -40,8 +45,9 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, jobId: job.id });
-  } catch (err: any) {
-    await supabaseAdmin.from('jobs').update({ status: 'failed', result: { error: err.message } }).eq('id', job.id);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    await supabaseAdmin.from('jobs').update({ status: 'failed', result: { error: message } }).eq('id', job.id);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
