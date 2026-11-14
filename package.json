@@ -11,23 +11,26 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.69.1",
+    "@supabase/supabase-js": "2.45.4",
     "jose": "5.9.6",
     "next": "16.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "ws": "^8.18.0",
     "zod": "^4.6.6"
   },
   "devDependencies": {
     "@types/node": "20.14.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/ws": "^8.5.12",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.4.6",
     "typescript": "5.5.4",
     "vitest": "2.1.5"
   },
   "overrides": {
-    "postcss": "^8.4.31"
+    "postcss": "^8.4.31",
+    "@supabase/auth-js": ">=2.69.2"
   }
 }
