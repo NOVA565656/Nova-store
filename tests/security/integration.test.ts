@@ -5,17 +5,33 @@ import { POST as approveListing } from '../../app/api/listings/[id]/approve/rout
 import { getSession } from '../../lib/auth/require';
 import { requireRoleForVerifiedSession, AuthError } from '../../lib/auth/session';
 import { rateLimit } from '../../lib/rate-limit';
-import { supabaseAdmin } from '../../lib/db';
+import { createUserClient } from '../../lib/supabase-client';
 import { NextRequest } from 'next/server';
 
-vi.mock('../../lib/auth/require', () => ({ getSession: vi.fn() }));
+// 1. Fix the require mock to include SESSION_COOKIE
+vi.mock('../../lib/auth/require', () => ({ 
+  getSession: vi.fn(),
+  SESSION_COOKIE: 'session'
+}));
+
 vi.mock('../../lib/auth/session', () => ({ 
   requireRoleForVerifiedSession: vi.fn(),
   AuthError: class extends Error { constructor(public kind: string, public status: number) { super(kind); } }
 }));
+
 vi.mock('../../lib/rate-limit', () => ({ rateLimit: vi.fn() }));
-vi.mock('../../lib/db', () => ({ supabaseAdmin: { from: vi.fn() } }));
-vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({ get: vi.fn() }) }));
+
+// 2. Mock createUserClient instead of supabaseAdmin
+vi.mock('../../lib/supabase-client', () => ({ 
+  createUserClient: vi.fn() 
+}));
+
+// 3. Fix the cookies mock to return a valid token
+vi.mock('next/headers', () => ({ 
+  cookies: vi.fn().mockResolvedValue({ 
+    get: vi.fn().mockReturnValue({ value: 'mock-token' }) 
+  }) 
+}));
 
 describe('@security:authz — route-level integration', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -49,13 +65,34 @@ describe('@security:authz — route-level integration', () => {
   it('blocks unverified skills from being approved', async () => {
     vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
     
-    const mockSingle = vi.fn().mockResolvedValue({ 
-      data: { id: 'l1', seller_id: 'u1', type: 'skill', proof_verified: false, status: 'plan_ready' }, 
-      error: null 
-    });
-    const mockEq = vi.fn().mockReturnValue({ single: mockSingle });
-    const mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
-    vi.mocked(supabaseAdmin.from).mockReturnValue({ select: mockSelect } as never);
+    // Mock the exact chain the approve route uses
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  // Product update fails because it's a skill (simulating 0 rows / PGRST116)
+                  single: vi.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
+                })
+              })
+            })
+          })
+        }),
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            // Fallback fetch identifies it as an unverified skill
+            single: vi.fn().mockResolvedValue({ 
+              data: { id: 'l1', type: 'skill', proof_verified: false, status: 'plan_ready' }, 
+              error: null 
+            })
+          })
+        })
+      })
+    };
+    
+    vi.mocked(createUserClient).mockReturnValue(mockSupabase as never);
 
     const req = new NextRequest('http://localhost/api/listings/l1/approve', { method: 'POST' });
     const res = await approveListing(req, { params: { id: 'l1' } });
