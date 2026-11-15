@@ -1,7 +1,12 @@
 'use client';
 import { useState } from 'react';
 
-export default function DiscoveryCard({ targets, listingId }: { targets: any, listingId: string }) {
+type Targets = {
+  pages: { id: string; name: string; followers: string; likelyToBuy: number }[];
+  groups: { id: string; name: string; members: string; webLink: string }[];
+};
+
+export default function DiscoveryCard({ targets, listingId }: { targets: Targets; listingId: string }) {
   const [publishing, setPublishing] = useState<string | null>(null);
 
   const handlePublish = async (pageId: string) => {
@@ -28,7 +33,7 @@ export default function DiscoveryCard({ targets, listingId }: { targets: any, li
       
       <h3 style={{ marginTop: '1.5rem' }}>Facebook Pages (Auto-Publish Supported)</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {targets.pages.map((p: any) => (
+        {targets.pages.map(p => (
           <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: '#f9fafb', borderRadius: 8 }}>
             <div>
               <strong>{p.name}</strong>
@@ -50,7 +55,7 @@ export default function DiscoveryCard({ targets, listingId }: { targets: any, li
 
       <h3 style={{ marginTop: '1.5rem' }}>Facebook Groups (Manual Publish)</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {targets.groups.map((g: any) => (
+        {targets.groups.map(g => (
           <div key={g.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', background: '#f9fafb', borderRadius: 8 }}>
             <div>
               <strong>{g.name}</strong>
