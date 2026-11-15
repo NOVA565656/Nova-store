@@ -21,7 +21,7 @@ export default function FlagToggle({ flag }: { flag: Flag }) {
     });
 
     if (res.ok) {
-      router.refresh();
+      router.refresh(); // Refreshes the Server Component data
     } else {
       alert('Failed to update flag');
     }
