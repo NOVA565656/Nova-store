@@ -20,7 +20,6 @@ describe('@security:authz — messaging route', () => {
   it('rejects unauthenticated access', async () => {
     vi.mocked(getSession).mockResolvedValue(null);
     
-    // Mock the request object directly
     const req = { json: async () => ({}) } as NextRequest;
     const res = await sendMessage(req);
     expect(res.status).toBe(401);
@@ -50,9 +49,9 @@ describe('@security:authz — messaging route', () => {
     };
     vi.mocked(createUserClient).mockReturnValue(mockSupabase as never);
 
-    // Mock the request object directly
+    // Using a perfectly valid RFC 4122 UUID
     const req = { 
-      json: async () => ({ listingId: '11111111-1111-1111-1111-111111111111', content: 'Hi' }) 
+      json: async () => ({ listingId: '123e4567-e89b-12d3-a456-426614174000', content: 'Hi' }) 
     } as NextRequest;
     
     const res = await sendMessage(req);
