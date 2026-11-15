@@ -1,29 +1,47 @@
-'use client';
-import { useEffect, useState } from 'react';
+import { createPublicClient } from '@/lib/supabase-public';
+import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { useCart } from '@/lib/cart-context';
-import { useRouter } from 'next/navigation';
+import { safeJsonLd } from '@/lib/json-ld';
+import AddToCartButton from '@/components/AddToCartButton';
 
-// Since we need dynamic Add to Cart, we make this a Client Component
-export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const { addToCart } = useCart();
-  const router = useRouter();
-  const [listing, setListing] = useState<any>(null);
-  const [id, setId] = useState<string | null>(null);
+export const revalidate = 60;
 
-  useEffect(() => {
-    params.then(p => {
-      setId(p.id);
-      // Fetch data from API or pass via props in a real app
-      // For this phase, we simulate fetching
-      fetch(`/api/public/listings/${p.id}`).then(r => r.json()).then(setListing);
-    });
-  }, [params]);
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = createPublicClient();
+  
+  const { data: listing } = await supabase
+    .from('listings')
+    .select('*, public_profiles(display_name, name_type, id)')
+    .eq('id', id)
+    .eq('status', 'published')
+    .single();
 
-  if (!listing || !id) return <div style={{ padding: '2rem' }}>Loading...</div>;
+  if (!listing) notFound();
+
+  const seller = Array.isArray(listing.public_profiles) ? listing.public_profiles[0] : listing.public_profiles;
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: listing.title,
+    description: listing.description,
+    offers: {
+      '@type': 'Offer',
+      price: listing.price || 0,
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
+    },
+    seller: {
+      '@type': seller.name_type === 'company' ? 'Organization' : 'Person',
+      name: seller.display_name,
+    }
+  };
 
   return (
     <main style={{ padding: '2rem', maxWidth: 800, margin: '0 auto' }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      
       <Link href="/" style={{ color: '#6b7280', textDecoration: 'none', marginBottom: '2rem', display: 'inline-block' }}>
         &larr; Back to Home
       </Link>
@@ -33,12 +51,12 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         <p style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>{listing.price ? `$${listing.price}` : 'Contact for price'}</p>
         <div style={{ marginTop: '2rem', whiteSpace: 'pre-wrap' }}>{listing.description}</div>
         
-        <button 
-          onClick={() => addToCart({ listingId: listing.id, sellerId: listing.seller_id, title: listing.title, price: listing.price })}
-          style={{ marginTop: '2rem', width: '100%', padding: '1rem', background: '#000', color: '#fff', border: 'none', borderRadius: 8 }}
-        >
-          Add to Cart
-        </button>
+        <AddToCartButton listing={listing} />
+
+        <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb' }}>
+          <p>Sold by: <Link href={`/profile/${seller.id}`} style={{ fontWeight: 'bold', color: '#2563eb' }}>{seller.display_name}</Link></p>
+          {seller.name_type === 'company' ? '🏭 Company' : '🥈 Individual'}
+        </div>
       </div>
     </main>
   );
