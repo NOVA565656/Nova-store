@@ -20,7 +20,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@lhci/cli": "^0.13.1",
+    "@lhci/cli": "^0.14.0",
     "@types/node": "20.14.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
