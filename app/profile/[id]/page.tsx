@@ -8,7 +8,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const supabase = createPublicClient();
   
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', id).single();
+  const { data: profile } = await supabase.from('public_profiles').select('*').eq('id', id).single();
   if (!profile) notFound();
 
   const { data: listings } = await supabase
