@@ -29,7 +29,6 @@ export default async function ListingDashboard({ params }: { params: Promise<{ i
 
   if (!listing) notFound();
 
-  // Mock analytics data (P7 will query the events table)
   const views = 124;
   const clicks = 18;
   
@@ -44,7 +43,6 @@ export default async function ListingDashboard({ params }: { params: Promise<{ i
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 350px', gap: '3rem', alignItems: 'start' }}>
         
-        {/* Left Column: Analytics & Discovery */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
             <div>
@@ -57,7 +55,6 @@ export default async function ListingDashboard({ params }: { params: Promise<{ i
 
           <div style={{ background: '#fff', borderRadius: 12, padding: '2rem', border: '1px solid #e5e7eb' }}>
             <h2 style={{ marginTop: 0 }}>Performance (Last 7 Days)</h2>
-            {/* Mock Chart */}
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2rem', height: 200, marginTop: '2rem' }}>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{ width: '100%', background: '#3b82f6', height: '100%', borderRadius: '8px 8px 0 0' }}></div>
@@ -74,10 +71,10 @@ export default async function ListingDashboard({ params }: { params: Promise<{ i
             </div>
           </div>
 
-          <DiscoveryCard targets={targets} />
+          {/* FIXED: Added listingId={listing.id} here */}
+          <DiscoveryCard targets={targets} listingId={listing.id} />
         </div>
 
-        {/* Right Column: Floating AI Card */}
         <AICard temperature={temperature} />
         
       </div>
