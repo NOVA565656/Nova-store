@@ -1,5 +1,12 @@
-export async function getAITemperature(listingId: string, views: number, clicks: number) {
-  // Mock AI logic based on stats
+export type AITemperature = {
+  temp: 'hot' | 'warm' | 'cold';
+  insight: string;
+  action: string;
+  breakdown: string;
+};
+
+// FIXED: Added explicit return type Promise<AITemperature>
+export async function getAITemperature(listingId: string, views: number, clicks: number): Promise<AITemperature> {
   const score = Math.min((views * 0.1) + (clicks * 2), 100);
   
   if (score > 70) {
@@ -27,7 +34,6 @@ export async function getAITemperature(listingId: string, views: number, clicks:
 }
 
 export async function getDiscoveryTargets(listingId: string) {
-  // Mocked targets for P6
   return {
     pages: [
       { id: 'page_1', name: 'Local Buy & Sell', followers: '12K', likelyToBuy: 85 },
