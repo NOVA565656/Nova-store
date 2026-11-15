@@ -14,15 +14,13 @@ export default function CartDrawer() {
 
   const handleMessageAll = async () => {
     setSending(true);
-    // Group by seller to message all at once
     const uniqueSellers = Array.from(new Set(items.map(i => i.sellerId)));
     
     for (const sellerId of uniqueSellers) {
       const sellerItems = items.filter(i => i.sellerId === sellerId);
-      
-      // We message the seller about the first item (or you can loop through all items)
       const res = await fetch('/api/messages', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listingId: sellerItems[0].listingId,
           content: message || `Hi, I'm interested in: ${sellerItems.map(i => i.title).join(', ')}`
@@ -30,8 +28,9 @@ export default function CartDrawer() {
       });
 
       if (res.status === 401) {
-        // Trigger signup gate
-        router.push('/auth/signin/google?redirect=/cart'); 
+        // Trigger signup gate (P5)
+        router.push('/auth/signin/google');
+        setSending(false);
         return;
       }
     }
@@ -77,7 +76,7 @@ export default function CartDrawer() {
               <button 
                 onClick={handleMessageAll}
                 disabled={sending}
-                style={{ width: '100%', padding: '1rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: 8 }}
+                style={{ width: '100%', padding: '1rem', background: '#10b981', color: '#fff', border: 'none', borderRadius: 8, opacity: sending ? 0.5 : 1 }}
               >
                 {sending ? 'Sending...' : 'Message All Sellers'}
               </button>
