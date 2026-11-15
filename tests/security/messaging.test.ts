@@ -19,7 +19,11 @@ describe('@security:authz — messaging route', () => {
 
   it('rejects unauthenticated access', async () => {
     vi.mocked(getSession).mockResolvedValue(null);
-    const req = new NextRequest('http://localhost/api/messages', { method: 'POST', body: '{}' });
+    const req = new NextRequest('http://localhost/api/messages', { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}' 
+    });
     const res = await sendMessage(req);
     expect(res.status).toBe(401);
   });
@@ -27,7 +31,11 @@ describe('@security:authz — messaging route', () => {
   it('enforces rate limits', async () => {
     vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
     vi.mocked(rateLimit).mockReturnValue(false);
-    const req = new NextRequest('http://localhost/api/messages', { method: 'POST', body: '{}' });
+    const req = new NextRequest('http://localhost/api/messages', { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}' 
+    });
     const res = await sendMessage(req);
     expect(res.status).toBe(429);
   });
@@ -48,8 +56,8 @@ describe('@security:authz — messaging route', () => {
     vi.mocked(createUserClient).mockReturnValue(mockSupabase as never);
 
     const req = new NextRequest('http://localhost/api/messages', { 
-      method: 'POST', 
-      // FIXED: Using a valid UUID instead of '123'
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ listingId: '11111111-1111-1111-1111-111111111111', content: 'Hi' }) 
     });
     const res = await sendMessage(req);
