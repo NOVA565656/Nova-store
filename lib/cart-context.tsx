@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
 
-type CartItem = { listingId: string; sellerId: string; title: string; price: number | null; };
+export type CartItem = { listingId: string; sellerId: string; title: string; price: number | null; };
 type CartContextType = {
   items: CartItem[];
   addToCart: (item: CartItem) => void;
@@ -13,17 +13,25 @@ const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const saved = localStorage.getItem('cart');
-    if (saved) setItems(JSON.parse(saved));
-    setIsLoaded(true);
+    if (saved) {
+      try {
+        setItems(JSON.parse(saved));
+      } catch {
+        // Ignore invalid JSON
+      }
+    }
   }, []);
 
   useEffect(() => {
-    if (isLoaded) localStorage.setItem('cart', JSON.stringify(items));
-  }, [items, isLoaded]);
+    if (mounted) {
+      localStorage.setItem('cart', JSON.stringify(items));
+    }
+  }, [items, mounted]);
 
   const addToCart = (item: CartItem) => {
     setItems(prev => prev.find(i => i.listingId === item.listingId) ? prev : [...prev, item]);
