@@ -47,7 +47,11 @@ describe('@security:authz — messaging route', () => {
     };
     vi.mocked(createUserClient).mockReturnValue(mockSupabase as never);
 
-    const req = new NextRequest('http://localhost/api/messages', { method: 'POST', body: JSON.stringify({ listingId: '123', content: 'Hi' }) });
+    const req = new NextRequest('http://localhost/api/messages', { 
+      method: 'POST', 
+      // FIXED: Using a valid UUID instead of '123'
+      body: JSON.stringify({ listingId: '11111111-1111-1111-1111-111111111111', content: 'Hi' }) 
+    });
     const res = await sendMessage(req);
     expect(res.status).toBe(400);
     const json = await res.json();
