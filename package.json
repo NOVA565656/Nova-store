@@ -20,12 +20,14 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.13.1",
     "@types/node": "20.14.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/ws": "^8.5.12",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.4.6",
+    "structured-data-testing-tool": "^4.1.0",
     "typescript": "5.5.4",
     "vitest": "2.1.5"
   },
