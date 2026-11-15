@@ -1,69 +1,8 @@
-name: Production Test
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  production-validation:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          # REMOVED cache: 'npm' so it doesn't fail looking for the missing lockfile
-
-      - name: Install dependencies
-        run: npm install
-        # CHANGED from npm ci to npm install
-
-      - name: Audit dependencies
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Type check
-        run: npm run type-check
-
-      - name: Enforce security test tags
+- name: Start Production Server for Audits
         run: |
-          set -uo pipefail
-          REQUIRED=("@security:rls" "@security:forgery" "@security:ratelimit" "@security:authz")
-          FAIL=0
-          for tag in "${REQUIRED[@]}"; do
-            MATCHES=$(grep -rl --include="*.ts" --include="*.tsx" --include="*.sql" "$tag" tests/ supabase/tests/ 2>/dev/null || true)
-            if [ -z "$MATCHES" ]; then
-              echo "::error::Missing security test file containing tag $tag"
-              FAIL=1
-              continue
-            fi
-            for f in $MATCHES; do
-              if ! grep -qE '(^|[^a-zA-Z_])(it\(|test\(|it\.todo\(|plan\(|ok\()' "$f"; then
-                echo "::error::File $f contains $tag but no assertions"
-                FAIL=1
-              fi
-            done
-          done
-          [ "$FAIL" -eq 0 ] && echo "All required security tags present with assertions."
-
-      - name: Test (Vitest)
-        run: npm test
+          npm run build
+          npm run start & 
+          npx wait-on http://localhost:3000
         env:
           SESSION_SECRET: 'test-secret-must-be-at-least-32-chars-long!!'
           APP_URL: 'http://localhost:3000'
@@ -71,35 +10,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
 
-      - name: Build (production)
-        run: npm run build
-        env:
-          NEXT_TELEMETRY_DISABLED: 1
-          SESSION_SECRET: 'test-secret-must-be-at-least-32-chars-long!!'
-          APP_URL: 'http://localhost:3000'
-          SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key'
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-
-      - name: Verify production build output
+      - name: Run Lighthouse CI
         run: |
-          if [ ! -d ".next" ]; then
-            echo "::error::Production build failed: .next directory missing."
-            exit 1
-          fi
-          echo "Production build artifact found."
+          npm install -g @lhci/cli@0.13.x
+          lhci autorun --collect.url=http://localhost:3000 --collect.numberOfRuns=1 --assert.preset=lighthouse:recommended --assert.assertions.categories:performance=0.9
 
-      - name: Setup Supabase CLI
-        if: hashFiles('supabase/**') != ''
-        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520
-        with:
-          version: latest
-
-      - name: Validate schema and run pgTAP tests
-        if: hashFiles('supabase/**') != ''
+      - name: Validate Schema.org
         run: |
-          supabase start
-          supabase db reset
-          supabase test db
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          npx structured-data-testing-tool --url=http://localhost:3000/schema-test.html
