@@ -1,7 +1,8 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { createPublicClient } from '@/lib/supabase-public';
 
-export const revalidate = 60; // ISR: revalidate every 60 seconds
+export const revalidate = 60;
 
 export default async function Home() {
   const supabase = createPublicClient();
@@ -25,8 +26,8 @@ export default async function Home() {
         {listings?.map(l => (
           <Link key={l.id} href={`/products/${l.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', height: '100%' }}>
-              <div style={{ background: '#f3f4f6', height: 150, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-                {l.images?.[0] ? <img src={l.images[0]} alt={l.title} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }} /> : 'No Image'}
+              <div style={{ position: 'relative', background: '#f3f4f6', height: 150, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
+                {l.images?.[0] ? <Image src={l.images[0]} alt={l.title} fill style={{ objectFit: 'cover', borderRadius: 8 }} /> : 'No Image'}
               </div>
               <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{l.title}</h3>
               <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>{l.price ? `$${l.price}` : 'Contact for price'}</p>
