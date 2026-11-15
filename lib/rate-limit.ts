@@ -1,22 +1,19 @@
-// Minimal in-memory rate limiter for Phase 0.
-// P1 replaces the storage backend with a DB-backed implementation.
-// Interface is stable; @security:ratelimit tests must not change.
+import { supabaseAdmin } from '@/lib/db';
 
-type Bucket = { count: number; resetAt: number };
-const buckets = new Map<string, Bucket>();
+export async function rateLimit(key: string, maxRequests: number, windowMs: number): Promise<boolean> {
+  try {
+    const windowSeconds = Math.ceil(windowMs / 1000);
+    const { data, error } = await supabaseAdmin.rpc('check_rate_limit', {
+      p_key: key,
+      p_limit: maxRequests,
+      p_window_seconds: windowSeconds
+    });
 
-export function rateLimit(key: string, max: number, windowMs: number): boolean {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
+    if (error) throw error;
+    return data as boolean;
+  } catch (error) {
+    // Fail-Closed: If rate limiting fails, block the request to prevent abuse.
+    console.error('[RateLimit] Failed to check limit', error);
+    return false; 
   }
-  if (bucket.count >= max) return false;
-  bucket.count += 1;
-  return true;
-}
-
-export function _reset(): void {
-  buckets.clear();
 }
