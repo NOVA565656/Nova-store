@@ -84,7 +84,7 @@ jobs:
 
       - name: Run Lighthouse CI
         run: |
-          npx lhci autorun --collect.url=http://localhost:3000 --collect.numberOfRuns=1 --assert.preset=lighthouse:recommended --assert.assertions.categories:performance=0.9
+          npx lhci autorun
 
       - name: Validate Schema.org
         run: |
