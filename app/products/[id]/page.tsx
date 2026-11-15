@@ -1,6 +1,7 @@
 import { createPublicClient } from '@/lib/supabase-public';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { safeJsonLd } from '@/lib/json-ld';
 
 export const revalidate = 60;
 
@@ -10,16 +11,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   
   const { data: listing } = await supabase
     .from('listings')
-    .select('*, profiles(display_name, name_type)')
+    .select('*, public_profiles(display_name, name_type, id)')
     .eq('id', id)
     .eq('status', 'published')
     .single();
 
   if (!listing) notFound();
 
-  const seller = Array.isArray(listing.profiles) ? listing.profiles[0] : listing.profiles;
+  const seller = Array.isArray(listing.public_profiles) ? listing.public_profiles[0] : listing.public_profiles;
 
-  // GEO/SEO: Schema.org JSON-LD
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -41,7 +41,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     <main style={{ padding: '2rem', maxWidth: 800, margin: '0 auto' }}>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       
       <Link href="/" style={{ color: '#6b7280', textDecoration: 'none', marginBottom: '2rem', display: 'inline-block' }}>
