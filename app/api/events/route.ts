@@ -10,7 +10,8 @@ const eventSchema = z.object({
 
 export async function POST(req: NextRequest) {
   // 1. Rate Limit (60 events per minute per IP)
-  const ip = req.ip || req.headers.get('x-forwarded-for') || 'unknown';
+  // FIXED: Use x-forwarded-for header instead of req.ip
+  const ip = req.headers.get('x-forwarded-for') || 'unknown';
   if (!rateLimit(`events:${ip}`, 60, 60_000)) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   }
