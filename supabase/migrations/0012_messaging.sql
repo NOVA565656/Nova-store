@@ -4,7 +4,7 @@ create table if not exists public.threads (
   buyer_id uuid not null references public.profiles(id) on delete cascade,
   seller_id uuid not null references public.profiles(id) on delete cascade,
   created_at timestamptz not null default now(),
-  unique(listing_id, buyer_id) -- One thread per listing per buyer
+  unique(listing_id, buyer_id)
 );
 
 create table if not exists public.messages (
@@ -18,14 +18,12 @@ create table if not exists public.messages (
 alter table public.threads enable row level security;
 alter table public.messages enable row level security;
 
--- Threads: Users can only see threads they are part of
 create policy "threads: read own" on public.threads for select 
   using (auth.uid() = buyer_id or auth.uid() = seller_id);
 
 create policy "threads: insert buyer" on public.threads for insert 
   with check (auth.uid() = buyer_id);
 
--- Messages: Users can only see/send messages in threads they are part of
 create policy "messages: read own" on public.messages for select 
   using (exists (
     select 1 from public.threads 
