@@ -35,7 +35,7 @@ describe('@security:authz — route-level integration', () => {
 
   it('rejects unauthenticated users', async () => {
     vi.mocked(getSession).mockResolvedValue(null);
-    const req = new NextRequest('http://localhost/api/listings', { method: 'POST', body: '{}' });
+    const req = { json: async () => ({}) } as NextRequest;
     const res = await createListing(req);
     expect(res.status).toBe(401);
   });
@@ -44,7 +44,7 @@ describe('@security:authz — route-level integration', () => {
     vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
     vi.mocked(requireRoleForVerifiedSession).mockRejectedValue(new AuthError('forbidden', 403));
     
-    const req = new NextRequest('http://localhost/api/listings', { method: 'POST', body: JSON.stringify({}) });
+    const req = { json: async () => ({}) } as NextRequest;
     const res = await createListing(req);
     expect(res.status).toBe(403);
   });
@@ -52,9 +52,10 @@ describe('@security:authz — route-level integration', () => {
   it('enforces rate limiting on listing creation', async () => {
     vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
     vi.mocked(requireRoleForVerifiedSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
-    vi.mocked(rateLimit).mockReturnValue(false);
+    // FIXED: mockResolvedValue instead of mockReturnValue
+    vi.mocked(rateLimit).mockResolvedValue(false);
 
-    const req = new NextRequest('http://localhost/api/listings', { method: 'POST', body: JSON.stringify({}) });
+    const req = { json: async () => ({}) } as NextRequest;
     const res = await createListing(req);
     expect(res.status).toBe(429);
   });
@@ -88,8 +89,7 @@ describe('@security:authz — route-level integration', () => {
     
     vi.mocked(createUserClient).mockReturnValue(mockSupabase as never);
 
-    const req = new NextRequest('http://localhost/api/listings/l1/approve', { method: 'POST' });
-    // Next 15+ requires params to be a Promise
+    const req = { json: async () => ({}) } as NextRequest;
     const res = await approveListing(req, { params: Promise.resolve({ id: 'l1' }) });
 
     expect(res.status).toBe(400);
