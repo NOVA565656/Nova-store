@@ -27,7 +27,8 @@ describe('@security:authz — messaging route', () => {
 
   it('enforces rate limits', async () => {
     vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
-    vi.mocked(rateLimit).mockReturnValue(false);
+    // FIXED: mockResolvedValue instead of mockReturnValue
+    vi.mocked(rateLimit).mockResolvedValue(false);
     
     const req = { json: async () => ({}) } as NextRequest;
     const res = await sendMessage(req);
@@ -36,7 +37,8 @@ describe('@security:authz — messaging route', () => {
 
   it('prevents messaging yourself', async () => {
     vi.mocked(getSession).mockResolvedValue({ sub: 'u1', displayName: 'A', nameType: 'nickname' });
-    vi.mocked(rateLimit).mockReturnValue(true);
+    // FIXED: mockResolvedValue instead of mockReturnValue
+    vi.mocked(rateLimit).mockResolvedValue(true);
     
     const mockSupabase = {
       from: vi.fn().mockReturnValue({
@@ -49,7 +51,6 @@ describe('@security:authz — messaging route', () => {
     };
     vi.mocked(createUserClient).mockReturnValue(mockSupabase as never);
 
-    // Using a perfectly valid RFC 4122 UUID
     const req = { 
       json: async () => ({ listingId: '123e4567-e89b-12d3-a456-426614174000', content: 'Hi' }) 
     } as NextRequest;
