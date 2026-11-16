@@ -11,7 +11,8 @@ describe('@security:ratelimit — DB-backed fail-closed behavior', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('allows requests under the limit', async () => {
-    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({ data: true, error: null });
+    // FIXED: Cast as never to satisfy the full PostgrestResponse type
+    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({ data: true, error: null } as never);
     
     const result = await rateLimit('key1', 5, 60000);
     expect(result).toBe(true);
@@ -21,14 +22,16 @@ describe('@security:ratelimit — DB-backed fail-closed behavior', () => {
   });
 
   it('blocks requests when the DB returns false', async () => {
-    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({ data: false, error: null });
+    // FIXED: Cast as never
+    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({ data: false, error: null } as never);
     
     const result = await rateLimit('key2', 5, 60000);
     expect(result).toBe(false);
   });
 
   it('fails closed if the database throws an error', async () => {
-    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({ data: null, error: new Error('DB Down') });
+    // FIXED: Cast the error object as never to satisfy PostgrestError
+    vi.mocked(supabaseAdmin.rpc).mockResolvedValue({ data: null, error: new Error('DB Down') } as never);
     
     const result = await rateLimit('key3', 5, 60000);
     expect(result).toBe(false); 
