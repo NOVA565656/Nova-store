@@ -20,3 +20,6 @@ begin
   return v_count <= p_limit;
 end;
 $$ language plpgsql security definer;
+
+-- SECURITY FIX: Lock down the function so only service_role can call it
+revoke execute on function public.check_rate_limit(text, int, int) from public, anon, authenticated;
